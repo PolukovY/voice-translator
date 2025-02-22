@@ -8,6 +8,7 @@ const Conversation = ({ settings }) => {
     const [input, setInput] = useState("");
     const [listening, setListening] = useState(false);
     const [loading, setLoading] = useState(false);
+    let recognition;
 
     const translateText = async (text, fromLang, toLang) => {
         try {
@@ -24,10 +25,11 @@ const Conversation = ({ settings }) => {
         setListening(true);
         setLoading(true);
         try {
-            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
             recognition.lang = settings.speaker1.language === "Spanish" ? "es-ES" : "uk-UA";
             recognition.interimResults = false;
             recognition.continuous = false;
+            recognition.maxAlternatives = 1;
 
             recognition.start();
 
@@ -44,9 +46,20 @@ const Conversation = ({ settings }) => {
             };
 
             recognition.onerror = (event) => {
-                console.error("Speech recognition error:", event.error);
+                if (event.error === "no-speech") {
+                    console.warn("No speech detected, please try again.");
+                } else {
+                    console.error("Speech recognition error:", event.error);
+                }
                 setListening(false);
                 setLoading(false);
+            };
+
+            recognition.onend = () => {
+                if (listening) {
+                    console.log("Restarting speech recognition due to no speech.");
+                    recognition.start();
+                }
             };
         } catch (error) {
             console.error("Error initializing speech recognition:", error);
