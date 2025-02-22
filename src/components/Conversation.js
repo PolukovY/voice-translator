@@ -9,21 +9,49 @@ const Conversation = ({ settings }) => {
     const [listening, setListening] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    const translateText = async (text, fromLang, toLang) => {
+        try {
+            const response = await fetch("https://api.mymemory.translated.net/get?q=" + encodeURIComponent(text) + "&langpair=" + fromLang + "|" + toLang);
+            const data = await response.json();
+            return data.responseData.translatedText;
+        } catch (error) {
+            console.error("Error translating text:", error);
+            return text;
+        }
+    };
+
     const handleStartListening = async () => {
         setListening(true);
         setLoading(true);
         try {
-            setTimeout(() => {
-                const receivedMessage = "Hola, ¿cómo estás?";
-                const translatedMessage = "Привіт, як справи?";
-                setMessages([...messages, { text: receivedMessage, translated: translatedMessage, sender: "Speaker 1", timestamp: new Date() }]);
-                setLoading(false);
+            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = settings.speaker1.language === "Spanish" ? "es-ES" : "uk-UA";
+            recognition.interimResults = false;
+            recognition.continuous = false;
+
+            recognition.start();
+
+            recognition.onresult = async (event) => {
+                const speechText = event.results[0][0].transcript;
+                const translatedMessage = await translateText(speechText, settings.speaker1.language, settings.speaker2.language);
+                setMessages([...messages, { text: speechText, translated: translatedMessage, sender: "Speaker 1", timestamp: new Date() }]);
                 setListening(false);
-            }, 2000);
+                setLoading(false);
+            };
+
+            recognition.onspeechend = () => {
+                recognition.stop();
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error);
+                setListening(false);
+                setLoading(false);
+            };
         } catch (error) {
-            console.error("Error processing speech:", error);
-            setLoading(false);
+            console.error("Error initializing speech recognition:", error);
             setListening(false);
+            setLoading(false);
         }
     };
 
@@ -31,7 +59,8 @@ const Conversation = ({ settings }) => {
         if (input.trim()) {
             setLoading(true);
             try {
-                setMessages([...messages, { text: input, sender: "Speaker 2", timestamp: new Date() }]);
+                const translatedMessage = await translateText(input, settings.speaker2.language, settings.speaker1.language);
+                setMessages([...messages, { text: input, translated: translatedMessage, sender: "Speaker 2", timestamp: new Date() }]);
                 setInput("");
             } catch (error) {
                 console.error("Error sending message:", error);
