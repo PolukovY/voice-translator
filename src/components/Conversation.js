@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Box, Typography, Button, TextField, List, ListItem, ListItemText } from "@mui/material";
+import { Box, Typography, Button, TextField, List, ListItem, ListItemText, CircularProgress } from "@mui/material";
 import MicIcon from "@mui/icons-material/Mic";
 import SendIcon from "@mui/icons-material/Send";
 
@@ -7,21 +7,36 @@ const Conversation = ({ settings }) => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
     const [listening, setListening] = useState(false);
+    const [loading, setLoading] = useState(false);
 
-    const handleStartListening = () => {
+    const handleStartListening = async () => {
         setListening(true);
-        setTimeout(() => {
-            const receivedMessage = "Hola, ¿cómo estás?";
-            const translatedMessage = "Привіт, як справи?";
-            setMessages([...messages, { text: receivedMessage, translated: translatedMessage, sender: "Speaker 1", timestamp: new Date() }]);
+        setLoading(true);
+        try {
+            setTimeout(() => {
+                const receivedMessage = "Hola, ¿cómo estás?";
+                const translatedMessage = "Привіт, як справи?";
+                setMessages([...messages, { text: receivedMessage, translated: translatedMessage, sender: "Speaker 1", timestamp: new Date() }]);
+                setLoading(false);
+                setListening(false);
+            }, 2000);
+        } catch (error) {
+            console.error("Error processing speech:", error);
+            setLoading(false);
             setListening(false);
-        }, 2000);
+        }
     };
 
-    const handleSendMessage = () => {
+    const handleSendMessage = async () => {
         if (input.trim()) {
-            setMessages([...messages, { text: input, sender: "Speaker 2", timestamp: new Date() }]);
-            setInput("");
+            setLoading(true);
+            try {
+                setMessages([...messages, { text: input, sender: "Speaker 2", timestamp: new Date() }]);
+                setInput("");
+            } catch (error) {
+                console.error("Error sending message:", error);
+            }
+            setLoading(false);
         }
     };
 
@@ -37,6 +52,7 @@ const Conversation = ({ settings }) => {
                     </ListItem>
                 ))}
             </List>
+            {loading && <CircularProgress sx={{ display: "block", margin: "auto" }} />}
             <Box display="flex" mt={2}>
                 <Button variant="contained" color="primary" startIcon={<MicIcon />} onClick={handleStartListening} disabled={listening}>
                     {listening ? "Listening..." : "Speak"}
