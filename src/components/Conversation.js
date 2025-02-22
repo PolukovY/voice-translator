@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Box, Typography, Button, TextField, List, ListItem, ListItemText, CircularProgress } from "@mui/material";
 import MicIcon from "@mui/icons-material/Mic";
 import SendIcon from "@mui/icons-material/Send";
@@ -8,77 +8,55 @@ const Conversation = ({ settings }) => {
     const [input, setInput] = useState("");
     const [listening, setListening] = useState(false);
     const [loading, setLoading] = useState(false);
-    let recognition;
+    const [recordedAudio, setRecordedAudio] = useState(null);
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
 
-    const translateText = async (text, fromLang, toLang) => {
-        try {
-            const response = await fetch("https://api.mymemory.translated.net/get?q=" + encodeURIComponent(text) + "&langpair=" + fromLang + "|" + toLang);
-            const data = await response.json();
-            return data.responseData.translatedText;
-        } catch (error) {
-            console.error("Error translating text:", error);
-            return text;
+    const startRecording = () => {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then((stream) => {
+                const mediaRecorder = new MediaRecorder(stream);
+                mediaRecorderRef.current = mediaRecorder;
+                audioChunksRef.current = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunksRef.current.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    setRecordedAudio(audioUrl);
+                    setMessages([...messages, { audio: audioUrl, sender: "Speaker 1", timestamp: new Date() }]);
+                };
+
+                mediaRecorder.start();
+                setListening(true);
+            })
+            .catch((error) => console.error("Error accessing microphone:", error));
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current) {
+            mediaRecorderRef.current.stop();
+            setListening(false);
         }
     };
 
-    const handleStartListening = async () => {
-        setListening(true);
-        setLoading(true);
-        try {
-            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-            recognition.lang = settings.speaker1.language === "Spanish" ? "es-ES" : "uk-UA";
-            recognition.interimResults = false;
-            recognition.continuous = false;
-            recognition.maxAlternatives = 1;
-
-            recognition.start();
-
-            recognition.onresult = async (event) => {
-                const speechText = event.results[0][0].transcript;
-                const translatedMessage = await translateText(speechText, settings.speaker1.language, settings.speaker2.language);
-                setMessages([...messages, { text: speechText, translated: translatedMessage, sender: "Speaker 1", timestamp: new Date() }]);
-                setListening(false);
-                setLoading(false);
-            };
-
-            recognition.onspeechend = () => {
-                recognition.stop();
-            };
-
-            recognition.onerror = (event) => {
-                if (event.error === "no-speech") {
-                    console.warn("No speech detected, please try again.");
-                } else {
-                    console.error("Speech recognition error:", event.error);
-                }
-                setListening(false);
-                setLoading(false);
-            };
-
-            recognition.onend = () => {
-                if (listening) {
-                    console.log("Restarting speech recognition due to no speech.");
-                    recognition.start();
-                }
-            };
-        } catch (error) {
-            console.error("Error initializing speech recognition:", error);
-            setListening(false);
-            setLoading(false);
-        }
+    const downloadRecording = () => {
+        if (!recordedAudio) return;
+        const link = document.createElement("a");
+        link.href = recordedAudio;
+        link.download = "recording.wav";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const handleSendMessage = async () => {
         if (input.trim()) {
-            setLoading(true);
-            try {
-                const translatedMessage = await translateText(input, settings.speaker2.language, settings.speaker1.language);
-                setMessages([...messages, { text: input, translated: translatedMessage, sender: "Speaker 2", timestamp: new Date() }]);
-                setInput("");
-            } catch (error) {
-                console.error("Error sending message:", error);
-            }
-            setLoading(false);
+            setMessages([...messages, { text: input, sender: "Speaker 2", timestamp: new Date() }]);
+            setInput("");
         }
     };
 
@@ -87,17 +65,21 @@ const Conversation = ({ settings }) => {
             <List>
                 {messages.map((msg, index) => (
                     <ListItem key={index} alignItems="flex-start">
-                        <ListItemText
-                            primary={`${msg.sender} (${msg.timestamp.toLocaleTimeString()})`}
-                            secondary={`${msg.text}${msg.translated ? ` → ${msg.translated}` : ""}`}
-                        />
+                        {msg.audio ? (
+                            <audio controls src={msg.audio} />
+                        ) : (
+                            <ListItemText
+                                primary={`${msg.sender} (${msg.timestamp.toLocaleTimeString()})`}
+                                secondary={msg.text}
+                            />
+                        )}
                     </ListItem>
                 ))}
             </List>
             {loading && <CircularProgress sx={{ display: "block", margin: "auto" }} />}
             <Box display="flex" mt={2}>
-                <Button variant="contained" color="primary" startIcon={<MicIcon />} onClick={handleStartListening} disabled={listening}>
-                    {listening ? "Listening..." : "Speak"}
+                <Button variant="contained" color="primary" startIcon={<MicIcon />} onClick={listening ? stopRecording : startRecording}>
+                    {listening ? "Stop Recording" : "Start Recording"}
                 </Button>
                 <TextField
                     fullWidth
@@ -111,6 +93,11 @@ const Conversation = ({ settings }) => {
                     Send
                 </Button>
             </Box>
+            {recordedAudio && (
+                <Button variant="contained" color="success" sx={{ mt: 2 }} onClick={downloadRecording}>
+                    Download Recording
+                </Button>
+            )}
         </Box>
     );
 };
