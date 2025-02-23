@@ -71,7 +71,7 @@ const Conversation = ({ settings }) => {
             });
             const data = await response.json();
             if (data.translated_text) {
-                setMessages([...messages, { text: data.translated_text, sender: "Translator", timestamp: new Date() }]);
+                setMessages([...messages, { text, translatedText: data.translated_text, sender: "Speaker 2", timestamp: new Date() }]);
             }
         } catch (error) {
             console.error("Error translating text:", error);
@@ -96,7 +96,7 @@ const Conversation = ({ settings }) => {
             });
             const data = await response.json();
             if (data.translated_text) {
-                setMessages([...messages, { text: data.translated_text, sender: "Translator", timestamp: new Date() }]);
+                setMessages([...messages, { audio: recordedAudio, translatedText: data.translated_text, sender: "Speaker 1", timestamp: new Date() }]);
             }
         } catch (error) {
             console.error("Error translating audio:", error);
@@ -118,11 +118,14 @@ const Conversation = ({ settings }) => {
                 {messages.map((msg, index) => (
                     <ListItem key={index} alignItems="flex-start">
                         {msg.audio ? (
-                            <audio controls src={msg.audio} />
+                            <>
+                                <audio controls src={msg.audio} />
+                                {msg.translatedText && <ListItemText secondary={`Translated: ${msg.translatedText}`} />}
+                            </>
                         ) : (
                             <ListItemText
                                 primary={`${msg.sender} (${msg.timestamp.toLocaleTimeString()})`}
-                                secondary={msg.text}
+                                secondary={msg.translatedText ? `${msg.text} → ${msg.translatedText}` : msg.text}
                             />
                         )}
                     </ListItem>
