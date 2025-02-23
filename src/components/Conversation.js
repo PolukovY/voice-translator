@@ -3,12 +3,13 @@ import { Box, Typography, Button, TextField, List, ListItem, ListItemText, Circu
 import MicIcon from "@mui/icons-material/Mic";
 import SendIcon from "@mui/icons-material/Send";
 
-const Conversation = ({ settings }) => {
+const Conversation = () => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
     const [listening, setListening] = useState(false);
     const [loading, setLoading] = useState(false);
     const [recordedAudio, setRecordedAudio] = useState(null);
+    const [recordedBase64, setRecordedBase64] = useState(null);
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
 
@@ -23,11 +24,12 @@ const Conversation = ({ settings }) => {
                     audioChunksRef.current.push(event.data);
                 };
 
-                mediaRecorder.onstop = () => {
+                mediaRecorder.onstop = async () => {
                     const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
                     const audioUrl = URL.createObjectURL(audioBlob);
                     setRecordedAudio(audioUrl);
                     setMessages([...messages, { audio: audioUrl, sender: "Speaker 1", timestamp: new Date() }]);
+                    await convertToBase64(audioBlob);
                 };
 
                 mediaRecorder.start();
@@ -43,11 +45,30 @@ const Conversation = ({ settings }) => {
         }
     };
 
-    const downloadRecording = () => {
+    const convertToBase64 = async (audioBlob) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+            setRecordedBase64(reader.result);
+        };
+    };
+
+    const downloadAudioFile = () => {
         if (!recordedAudio) return;
         const link = document.createElement("a");
         link.href = recordedAudio;
-        link.download = "recording.wav";
+        link.download = "audio.wav";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const downloadBase64File = () => {
+        if (!recordedBase64) return;
+        const blob = new Blob([recordedBase64], { type: "text/plain" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "audio_base64.txt";
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -94,8 +115,13 @@ const Conversation = ({ settings }) => {
                 </Button>
             </Box>
             {recordedAudio && (
-                <Button variant="contained" color="success" sx={{ mt: 2 }} onClick={downloadRecording}>
-                    Download Recording
+                <Button variant="contained" color="success" sx={{ mt: 2, mr: 2 }} onClick={downloadAudioFile}>
+                    Download Audio
+                </Button>
+            )}
+            {recordedBase64 && (
+                <Button variant="contained" color="success" sx={{ mt: 2 }} onClick={downloadBase64File}>
+                    Download Base64 Audio
                 </Button>
             )}
         </Box>
