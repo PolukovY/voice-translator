@@ -1,9 +1,9 @@
 import React, { useState, useRef } from "react";
-import { Box, Typography, Button, TextField, List, ListItem, ListItemText, CircularProgress } from "@mui/material";
+import { Box, Button, TextField, List, ListItem, ListItemText, CircularProgress } from "@mui/material";
 import MicIcon from "@mui/icons-material/Mic";
 import SendIcon from "@mui/icons-material/Send";
 
-const Conversation = () => {
+const Conversation = ({ settings }) => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
     const [listening, setListening] = useState(false);
@@ -12,6 +12,8 @@ const Conversation = () => {
     const [recordedBase64, setRecordedBase64] = useState(null);
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
+
+    const apiUrl = "https://ujmstq8xb9.execute-api.us-east-2.amazonaws.com/default/voiceTranslatorFunction";
 
     const startRecording = () => {
         navigator.mediaDevices.getUserMedia({ audio: true })
@@ -28,8 +30,8 @@ const Conversation = () => {
                     const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
                     const audioUrl = URL.createObjectURL(audioBlob);
                     setRecordedAudio(audioUrl);
-                    setMessages([...messages, { audio: audioUrl, sender: "Speaker 1", timestamp: new Date() }]);
                     await convertToBase64(audioBlob);
+                    await translateAudio();
                 };
 
                 mediaRecorder.start();
@@ -49,34 +51,63 @@ const Conversation = () => {
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
         reader.onloadend = () => {
-            setRecordedBase64(reader.result);
+            setRecordedBase64(reader.result.split(",")[1]);
         };
     };
 
-    const downloadAudioFile = () => {
-        if (!recordedAudio) return;
-        const link = document.createElement("a");
-        link.href = recordedAudio;
-        link.download = "audio.wav";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    const translateText = async (text) => {
+        setLoading(true);
+        try {
+            const response = await fetch(apiUrl, {
+                method: "POST",
+                headers: {
+                    "x-api-key": settings.apiKey,
+                    "Content-Type": "application/json",
+                    "type": "message",
+                    "from-language": settings?.speaker2?.language,
+                    "to-language": settings?.speaker2?.translateTo,
+                },
+                body: JSON.stringify({ messageToTranslate: text })
+            });
+            const data = await response.json();
+            if (data.translated_text) {
+                setMessages([...messages, { text: data.translated_text, sender: "Translator", timestamp: new Date() }]);
+            }
+        } catch (error) {
+            console.error("Error translating text:", error);
+        }
+        setLoading(false);
     };
 
-    const downloadBase64File = () => {
+    const translateAudio = async () => {
         if (!recordedBase64) return;
-        const blob = new Blob([recordedBase64], { type: "text/plain" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "audio_base64.txt";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        setLoading(true);
+        try {
+            const response = await fetch(apiUrl, {
+                method: "POST",
+                headers: {
+                    "x-api-key": settings.apiKey,
+                    "Content-Type": "application/json",
+                    "type": "audio",
+                    "from-language": settings?.speaker1?.language,
+                    "to-language": settings?.speaker1?.translateTo,
+                },
+                body: JSON.stringify({ file_base64: recordedBase64 })
+            });
+            const data = await response.json();
+            if (data.translated_text) {
+                setMessages([...messages, { text: data.translated_text, sender: "Translator", timestamp: new Date() }]);
+            }
+        } catch (error) {
+            console.error("Error translating audio:", error);
+        }
+        setLoading(false);
     };
 
     const handleSendMessage = async () => {
         if (input.trim()) {
             setMessages([...messages, { text: input, sender: "Speaker 2", timestamp: new Date() }]);
+            await translateText(input);
             setInput("");
         }
     };
@@ -114,16 +145,6 @@ const Conversation = () => {
                     Send
                 </Button>
             </Box>
-            {recordedAudio && (
-                <Button variant="contained" color="success" sx={{ mt: 2, mr: 2 }} onClick={downloadAudioFile}>
-                    Download Audio
-                </Button>
-            )}
-            {recordedBase64 && (
-                <Button variant="contained" color="success" sx={{ mt: 2 }} onClick={downloadBase64File}>
-                    Download Base64 Audio
-                </Button>
-            )}
         </Box>
     );
 };
