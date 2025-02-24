@@ -70,8 +70,8 @@ const Conversation = ({ settings }) => {
                 body: JSON.stringify({ messageToTranslate: text })
             });
             const data = await response.json();
-            if (data.translated_text) {
-                setMessages([...messages, { text, translatedText: data.translated_text, sender: "Speaker 2", timestamp: new Date() }]);
+            if (data.message) {
+                setMessages([...messages, { text, translatedText: data.message, sender: "Speaker 2", timestamp: new Date() }]);
             }
         } catch (error) {
             console.error("Error translating text:", error);
@@ -95,8 +95,8 @@ const Conversation = ({ settings }) => {
                 body: JSON.stringify({ file_base64: recordedBase64 })
             });
             const data = await response.json();
-            if (data.translated_text) {
-                setMessages([...messages, { audio: audioUrl, translatedText: data.translated_text, sender: "Speaker 1", timestamp: new Date() }]);
+            if (data.message) {
+                setMessages([...messages, { audio: audioUrl, translatedText: data.message, sender: "Speaker 1", timestamp: new Date() }]);
             }
         } catch (error) {
             console.error("Error translating audio:", error);
