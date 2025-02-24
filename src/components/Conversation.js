@@ -31,7 +31,7 @@ const Conversation = ({ settings }) => {
                     const audioUrl = URL.createObjectURL(audioBlob);
                     setRecordedAudio(audioUrl);
                     await convertToBase64(audioBlob);
-                    await translateAudio();
+                    await translateAudio(audioUrl);
                 };
 
                 mediaRecorder.start();
@@ -79,7 +79,7 @@ const Conversation = ({ settings }) => {
         setLoading(false);
     };
 
-    const translateAudio = async () => {
+    const translateAudio = async (audioUrl) => {
         if (!recordedBase64) return;
         setLoading(true);
         try {
@@ -96,7 +96,7 @@ const Conversation = ({ settings }) => {
             });
             const data = await response.json();
             if (data.translated_text) {
-                setMessages([...messages, { audio: recordedAudio, translatedText: data.translated_text, sender: "Speaker 1", timestamp: new Date() }]);
+                setMessages([...messages, { audio: audioUrl, translatedText: data.translated_text, sender: "Speaker 1", timestamp: new Date() }]);
             }
         } catch (error) {
             console.error("Error translating audio:", error);
