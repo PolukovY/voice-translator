@@ -1,0 +1,14 @@
+{
+  "files": {
+    "main.css": "/voice-translator/static/css/main.31d6cfe0.css",
+    "main.js": "/voice-translator/static/js/main.004e9416.js",
+    "static/js/453.5eca0b7a.chunk.js": "/voice-translator/static/js/453.5eca0b7a.chunk.js",
+    "index.html": "/voice-translator/index.html",
+    "main.004e9416.js.map": "/voice-translator/static/js/main.004e9416.js.map",
+    "453.5eca0b7a.chunk.js.map": "/voice-translator/static/js/453.5eca0b7a.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.31d6cfe0.css",
+    "static/js/main.004e9416.js"
+  ]
+}
